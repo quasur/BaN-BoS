@@ -7,13 +7,15 @@ Created by Adam C 12:42 14/11/2022
 import matplotlib.pyplot as plt
 import numpy as np
 
-pos = np.array([[0,-0.1,5],
-                [50,0,0]])
+pos = np.array([[0,0,5],
+                [100,0.1,0],
+                [0,300,0]])
 
-vel = np.array([[0,0,0],
-                [0,0.5,0]])
+vel = np.array([[0,-0.02,0],
+                [0,0.2,0],
+                [0.1,0,0]])
 
-mass= np.array([10,1])
+mass= np.array([10,1,0.1])
 N = np.size(mass)
 r=np.zeros((N,3))
 acc = r
@@ -27,7 +29,7 @@ posTime = np.zeros((N,3,tsteps))
 #Calculation of position magnitudes and normalised unit vectors
 def rHatCalc(pos,body):
     r = pos[body,:]-pos[:,:]
-    r[body,:] = r[body,:]+10**50
+    r[body,:] = r[body,:]+10**40
     #replaces the self distance with a 
     #very large one so it is neglegible for 1/f(r) calculations
     rnorm=np.linalg.norm(r,axis = 1)
