@@ -39,34 +39,32 @@ def rHatCalc(pos,body):
     #finds magnitude squared of displacement vectors
     return(rhat,rsqruared)
 
-#Initial energy calculations
+#Energy calculations
 def particleEnergy(pos,vel,mass,size):
     bodyEnergy = np.zeros(size)
-    for ie in range(size):
-        KE = 0.5*mass[ie]*np.sum(vel[ie]**2)
-        r = rHatCalc(pos,ie)[1]**(1/2)
+    for ie in range(size): #for each particle
+        KE = 0.5*mass[ie]*np.sum(vel[ie]**2) #find kinetic energy from velocity
+        r = rHatCalc(pos,ie)[1]**(1/2) #find distance to all other particles distance to self is very large
         GPE = np.sum(mass[ie]*(mass/r))
         bodyEnergy[ie] = KE + GPE
     return(bodyEnergy)
 
-initialEnergy = np.sum(particleEnergy(pos,vel,mass,N))
+energy =np.zeros(tsteps)
 
+#calculation of energy
 for b in range(tsteps):
-    for a in range(N):
-        rdir,r2 = rHatCalc(pos,a)
-        for c in range(N):
-            accarr[a,c,:]= -((mass[c]/r2[c])*rdir[c,:])
+    energy[b] = np.sum(particleEnergy(pos,vel,mass,N))#find energy of current system
+    for a in range(N):#for each body
+        rdir,r2 = rHatCalc(pos,a) #calculate distance (distance to self is very large)
+        for c in range(N):#for each other body
+            accarr[a,c,:]= -((mass[c]/r2[c])*rdir[c,:])#calculate acceleration from position and massses of the 2 particles
         
-        acc = np.sum(accarr,axis=1)
-        vel = vel + acc*dt
-        #print(vel)
-        pos = pos + vel*dt
-        posTime[a,:,b] = pos[a]
+        acc = np.sum(accarr,axis=1) #net acceleration
+        vel = vel + acc*dt #basic ODE solve
+        pos = pos + vel*dt 
+        posTime[a,:,b] = pos[a] #append new positions to array
         
 
-finalEnergy = np.sum(particleEnergy(pos,vel,mass,N))
-
-print(finalEnergy-initialEnergy)
 
 
 fig = plt.figure()
@@ -82,3 +80,4 @@ t = np.arange(0,tsteps)
 
 plt.show()
 #%%
+plt.plot(range(tsteps),energy)
