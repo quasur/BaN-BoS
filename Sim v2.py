@@ -1,4 +1,4 @@
-#%%
+#BaN-BoS, a forever WIP by Adam Corness 
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
