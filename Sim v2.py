@@ -5,6 +5,7 @@ import matplotlib
 print("Select mode: \n 1 - Fast mode, Simulates only sun, jupiter and 2nd star to save time \n 2 - Normal mode \n 3 - Basic mode, the basic N = 2 mode of the sim")
 mode=input()
 print("mode: ",mode)
+matplotlib.use("TkAgg")
 #data from nasa horizons nov 29th
 posm = np.array([[-1.358225530315482e6,5.877370504082298e4,3.115443511303229e4]#sun
                 ,[1.376549883343749e7,-6.597839966211624e7 ,6.752602566463448e06]#mercury
@@ -15,7 +16,7 @@ posm = np.array([[-1.358225530315482e6,5.877370504082298e4,3.115443511303229e4]#
                 ,[1.203381795947770e9,-8.461591498062431e8,-3.319943552438039e7]#saturn
                 ,[2.013076660522243e9,2.145938180777864e9,-1.810968377389681e7]#uranus
                 ,[4.449357700380400e9,-4.557354440041960e8,-9.315523521869305e7]#neptune
-                ,[0,0,1e11]#interloper
+                ,[778.479e6/2,0,1e11]#interloper
                 ])*1000#converting from km to m
 
 
@@ -28,26 +29,27 @@ velms = np.array([[8.930963297742810e-4,-1.566187437452747E-02,1.099907037042883
                 ,[5.016422322394626,7.882308975831709,-3.364741968945446e-1]#saturn
                 ,[-5.016542103919061,4.341932264280020,8.117851592618530e-2]#uranus
                 ,[5.177294270500546e-1,5.439258628469002,-1.238187905959987e-1]#neptune
-                ,[0,0.125*2**(-0.5),-8*2**(-0.5)]#interloper
+                ,[0.000001,0,-0.1]#interloper
                 ])*1000
 
 
                    #sol       #mercury #venus      #earth      #mars      #jupiter    #saturn   #uranus   #neptune  #other star
-masskg = np.array([1.988500e30,3.302e23,4.8685e24,5.97219e24,6.4171e23,1.89818722e27,5.6834e26,8.6813e25,1.02409e26,2e28])
+masskg = np.array([1.988500e30,3.302e23,4.8685e24,5.97219e24,6.4171e23,1.89818722e27,5.6834e26,8.6813e25,1.02409e26,1e29])
 
 
 if mode == '3':
     pos = np.array([[-1,0,0],[1,0,0]])
     mass = np.array([1,1])
-    vel = np.array([[0,-0.5,0],[0,0.5,0]])
+    vel = np.array([[0,-0.4,0],[0,0.4,0]])
     print("simple case")
+    G=1
 else:
     pos = posm
     vel = velms
     G = 6.6743e-11
     massfactor = np.linalg.norm(posm[2,:])*np.linalg.norm(velms[2,:]**2)/G
     mass = (masskg/masskg[0])*massfactor
-    escapevel = np.sqrt(2*G*mass[0]/np.linalg.norm(pos[-1]))/100
+    escapevel = np.sqrt(2*G*mass[0]/np.linalg.norm(pos[-1]))
     vel[-1] = vel[-1]*escapevel
 
 
@@ -63,19 +65,20 @@ N = np.size(mass)
 
 day = 24*60**2
 if mode == '1':
-    dt = day
-    timestep=round(366*100)
-elif mode=='2':
     dt = day/10
-    timestep = 60225*10
+    timestep=round(366*1000)
+elif mode=='2':
+    dt = day/40
+    timestep = 60225*40
 elif mode == '3':
-    dt = 1
-    timestep = 2
+    dt = 0.01
+    timestep = 20000
 else:
     dt=1
     timestep=0
 
-print(timestep)
+print("timesteps: " ,timestep)
+print("number of bodies: ",N)
 
 posTime = np.zeros([N,timestep,3])
 accArray = np.zeros([N,N,3])
@@ -121,34 +124,144 @@ sunPosTime = posTime[0,:,:]
 relPosTime = (posTime-sunPosTime)/1.496e+11
 
 if mode == '3':
+    plt.title("Simple 2-Body Case")
+    plt.xlabel("x position")
+    plt.ylabel("y position")
     plt.plot(posTime[0,:,0],posTime[0,:,1],'r-')
     plt.plot(posTime[1,:,0],posTime[1,:,1])
+i=0
+
+if mode == "2":
+    while i < 3:
+        plt.cla()
+        maxacc = np.argmax(accTime)
+        plt.figure(figsize=(16,9),dpi=160)
+        axxy = plt.axes([0.06,0.05,0.75,0.9])
+        axxz = plt.axes([0.82,0.05,0.1,0.9])
+        axxz.yaxis.tick_right()
+        axxy.cla()
+        axxz.cla()
+        axxy.set_facecolor("midnightblue")
+        axxz.set_facecolor("midnightblue")
+        if i ==0:
+            axxy.set_xlim(-150,35)
+            axxy.set_ylim(-89.6,30)
+            axxz.set_xlim(-15,15)
+            axxz.set_ylim(-800,800)
+        elif i ==1:
+            axxy.set_xlim(-9.28,9.28)
+            axxy.set_ylim(-6,6)
+            axxz.set_xlim(-15,15)
+            axxz.set_ylim(-800,800)
+        elif i ==2:
+            axxy.set_xlim(2,3)
+            axxy.set_ylim(-0.32325,0.32325)
+            axxz.set_xlim(-15,15)
+            axxz.set_ylim(-800,800)
+        axxy.set_xlabel("x/AU")
+        axxy.set_ylabel("y/AU")
+        axxz.set_xlabel("x/AU")
+        axxz.set_ylabel("z/AU")
+        axxy.set_title("Paths in xy plane")
+        axxz.set_title("Paths in xz plane")
+        if i <2:
+            axxy.plot(0,0,'ro',label="Sun")
+            axxz.plot(0,0,'ro')
+            axxy.plot(relPosTime[1,:,0],relPosTime[1,:,1],color="slategrey",label="Mercury")
+            axxz.plot(relPosTime[1,:,0],relPosTime[1,:,2],color="slategrey",label="Mercury")
+            axxy.plot(relPosTime[2,:,0],relPosTime[2,:,1],color="darkorange",label="Venus")
+            axxz.plot(relPosTime[2,:,0],relPosTime[2,:,2],color="darkorange",label="Venus")
+            axxy.plot(relPosTime[3,:,0],relPosTime[3,:,1],color="turquoise",label="Earth")
+            axxz.plot(relPosTime[3,:,0],relPosTime[3,:,2],color="turquoise",label="Earth")
+            axxy.plot(relPosTime[4,:,0],relPosTime[4,:,1],color="red",label="Mars")
+            axxz.plot(relPosTime[4,:,0],relPosTime[4,:,2],color="red",label="Mars") 
+        if i < 3:
+            axxy.plot(relPosTime[5,:,0],relPosTime[5,:,1],color="chocolate",label="Jupiter")
+            axxz.plot(relPosTime[5,:,0],relPosTime[5,:,2],color="chocolate",label="Jupiter")
+            axxy.plot(relPosTime[9,:,0],relPosTime[9,:,1],color="deeppink",label="Interloper")
+            axxz.plot(relPosTime[9,:,0],relPosTime[9,:,2],color="deeppink",label="Interloper")
+            axxy.plot(relPosTime[-1,maxacc,0],relPosTime[-1,maxacc,1],'rx',label="Position of closest approach")
+            axxz.plot(relPosTime[-1,maxacc,0],relPosTime[-1,maxacc,2],'rx')
+        if i <2:
+            axxy.plot(relPosTime[6,:,0],relPosTime[6,:,1],color="gold",label="Saturn")
+            axxz.plot(relPosTime[6,:,0],relPosTime[6,:,2],color="gold",label="Saturn")
+        if i <1:
+            axxy.plot(relPosTime[7,:,0],relPosTime[7,:,1],color="skyblue",label="Uranus")
+            axxz.plot(relPosTime[7,:,0],relPosTime[7,:,2],color="skyblue",label="Uranus")
+            axxy.plot(relPosTime[8,:,0],relPosTime[8,:,1],color="royalblue",label="Neptune")
+            axxz.plot(relPosTime[8,:,0],relPosTime[8,:,2],color="royalblue",label="Neptune")
+        i=i+1
+        axxy.legend(loc="lower right")
+        plt.show()
+        input("press enter to show next plot")
+
+if mode == "1":   
+    maxacc = np.argmax(accTime)
+    plt.figure(figsize=(16,9),dpi=160)
+    axxy = plt.axes([0.06,0.05,0.75,0.9])
+    axxz = plt.axes([0.82,0.05,0.1,0.9])
+    axxy.set_facecolor("midnightblue")
+    axxz.set_facecolor("midnightblue")
+    axxy.set_xlim(-9.318,9.318)
+    axxy = plt.axes([0.05,0.06,0.9,0.75])
+    axxz = plt.axes([0.05,0.82,0.9,0.1])
+    axxz.yaxis.tick_right()
+    axxy.set_ylim(-6,6)
+    axxy.plot(0,0,'ro',label="Sun")
+    axxz.plot(0,0,'ro')
+    axxy.plot(relPosTime[1,:,0],relPosTime[1,:,1],color="chocolate",label="Jupiter")
+    axxz.plot(relPosTime[1,:,0],relPosTime[1,:,2],color="chocolate",label="Jupiter")
+    axxy.plot(relPosTime[2,:,0],relPosTime[2,:,1],color="deeppink",label="Interloper")
+    axxz.plot(relPosTime[2,:,0],relPosTime[2,:,2],color="deeppink",label="Interloper")
+    axxy.plot(relPosTime[-1,maxacc,0],relPosTime[-1,maxacc,1],'rx',label="Position of closest approach")
+    axxz.plot(relPosTime[-1,maxacc,0],relPosTime[-1,maxacc,2],'rx')
+    axxy.legend(loc="lower right")
+    i=3
+    
+plt.show()
+input("Press enter to show next graph")
+#%%
+plt.figure(figsize=(16,9),dpi=160)
+Eax = plt.axes([0.05,0.05,0.9,0.9])
+Eax.set_xlabel("timestep/0.025*days")
+Eax.set_ylabel("$E/E_i -1$")
+Eax.set_title("Relative energy over time")
+Eax.plot(range(timestep),energyTime/energyTime[0]-1)
+plt.show()
+#%%3D PLOT
+maxx = np.max(np.abs(relPosTime[-2,:,0]))
+maxy = np.max(np.abs(relPosTime[-2,:,1]))
+maxz = np.max(np.abs(relPosTime[-2,:,2]))
+maxxy = np.min([maxy,maxx])
+fig = plt.figimage
+ax = plt.axes(projection='3d')
+
+ax.set_xlim(-maxxy,maxxy)
+ax.set_ylim(-maxxy,maxxy)
+ax.set_zlim(-maxz,maxz)
+
+ax.plot3D(relPosTime[1,:,0],relPosTime[1,:,1],relPosTime[1,:,2],color="slategrey")
+ax.plot3D(relPosTime[2,:,0],relPosTime[2,:,1],relPosTime[2,:,2],color="darkorange")
+if mode == "2":
+    ax.plot3D(relPosTime[3,:,0],relPosTime[3,:,1],relPosTime[3,:,2],color="turquoise")
+    ax.plot3D(relPosTime[4,:,0],relPosTime[4,:,1],relPosTime[4,:,2],color="red")
+    ax.plot3D(relPosTime[5,:,0],relPosTime[5,:,1],relPosTime[5,:,2],color="chocolate")
+    ax.plot3D(relPosTime[6,:,0],relPosTime[6,:,1],relPosTime[6,:,2],color="gold")
+    ax.plot3D(relPosTime[7,:,0],relPosTime[7,:,1],relPosTime[7,:,2],color="skyblue")
+    ax.plot3D(relPosTime[8,:,0],relPosTime[8,:,1],relPosTime[8,:,2],color="darkblue")
+    ax.plot3D(relPosTime[9,:,0],relPosTime[9,:,1],relPosTime[9,:,2],color="deeppink")
+    ax.plot3D(0,0,0,'ro')
 else:
     fig = plt.figimage
     ax = plt.axes(projection='3d')
-    for i in range(N):
-        ax.plot3D(relPosTime[i,:,0],relPosTime[i,:,1],relPosTime[i,:,2])
-
-#%%
-
-fig = plt.figimage
-ax = plt.axes(projection='3d')
-ax.plot3D(relPosTime[0,:,0],relPosTime[0,:,1],relPosTime[0,:,2],'r-')
-ax.plot3D(relPosTime[1,:,0],relPosTime[1,:,1],relPosTime[1,:,2],'b-')
-ax.plot3D(relPosTime[-1,:,0],relPosTime[-1,:,1],relPosTime[-1,:,2],'g-')
-
-#%%
-for i in range(N-1):
-    plt.plot(relPosTime[i,:,0],relPosTime[i,:,1],'-')
-    maxacc = np.argmax(accTime)
-    plt.plot(relPosTime[2,maxacc,0],relPosTime[2,maxacc,1],'go')
-    plt.plot(0,0,'ro')
-
-#%%
+    ax.set_zlim(-50,50)
+    ax.plot3D(relPosTime[0,:,0],relPosTime[0,:,1],relPosTime[0,:,2],'r-')
+    ax.plot3D(relPosTime[5,:,0],relPosTime[5,:,1],relPosTime[5,:,2],'b-')
+    ax.plot3D(relPosTime[-1,:,0],relPosTime[-1,:,1],relPosTime[-1,:,2],'g-')
 #%%2D animation
 
 axanim = plt.axes()
-animstep = 50
+animstep = 500
 framenum = int(timestep/animstep)
 j2=0
 j=0
@@ -159,16 +272,17 @@ while timestep>(j2+animstep):
     j2 = (k +10)*animstep #time scale of animation
     j = k*animstep
     axanim.clear()
-    axesLimit = np.abs(np.max(relPosTime[0:bodies,:,:]))*1.1
+    axesLimit = np.abs(np.max(relPosTime[0:bodies+4,:,:]))*1.1
     axanim.set_xlim(-axesLimit,axesLimit)
     axanim.set_ylim(-axesLimit,axesLimit)
-    for i in range(bodies):  
-        axanim.plot(relPosTime[i,j:j2,0],relPosTime[i,j:j2,1],'-')
-        axanim.plot(relPosTime[i,j2,0],relPosTime[i,j2,1],'o')
+    for i in range(bodies+1):  
+        axanim.plot(relPosTime[i+4,j:j2,0],relPosTime[i+4,j:j2,1],'-')
+        axanim.plot(relPosTime[i+4,j2,0],relPosTime[i+4,j2,1],'o')
     plt.pause(0.1)
     
 #%%energy graph
-plt.plot(range(timestep),energyTime/energyTime[0]-1)
+#%%
+plt.plot()
 
 #%%
 plt.plot(range(timestep),accTime)
