@@ -5,7 +5,7 @@ import matplotlib
 print("Select mode: \n 1 - Fast mode, Simulates only sun, jupiter and 2nd star to save time \n 2 - Normal mode \n 3 - Basic mode, the basic N = 2 mode of the sim")
 mode=input()
 print("mode: ",mode)
-matplotlib.use("TkAgg")
+matplotlib.use("TkAgg") #this mode allowed me to display multiple figures in vscode without it crashing
 #data from nasa horizons nov 29th
 posm = np.array([[-1.358225530315482e6,5.877370504082298e4,3.115443511303229e4]#sun
                 ,[1.376549883343749e7,-6.597839966211624e7 ,6.752602566463448e06]#mercury
@@ -19,7 +19,6 @@ posm = np.array([[-1.358225530315482e6,5.877370504082298e4,3.115443511303229e4]#
                 ,[778.479e6/2,0,1e11]#interloper
                 ])*1000#converting from km to m
 
-
 velms = np.array([[8.930963297742810e-4,-1.566187437452747E-02,1.099907037042883E-4]
                 ,[3.771675113483448e1,1.334760193963047e1,-2.367346535682127]#mercury
                 ,[3.477141440886862e1,-1.174603245348857,-2.022144898327964]#venus
@@ -32,18 +31,16 @@ velms = np.array([[8.930963297742810e-4,-1.566187437452747E-02,1.099907037042883
                 ,[0.000001,0,-0.1]#interloper
                 ])*1000
 
-
                    #sol       #mercury #venus      #earth      #mars      #jupiter    #saturn   #uranus   #neptune  #other star
-masskg = np.array([1.988500e30,3.302e23,4.8685e24,5.97219e24,6.4171e23,1.89818722e27,5.6834e26,8.6813e25,1.02409e26,1e29])
+masskg = np.array([1.988500e30,3.302e23,4.8685e24,5.97219e24,6.4171e23,1.89818722e27,5.6834e26,8.6813e25,1.02409e26,2e30])
 
-
-if mode == '3':
+if mode == '3':#overrides for basic case
     pos = np.array([[-1,0,0],[1,0,0]])
     mass = np.array([1,1])
     vel = np.array([[0,-0.4,0],[0,0.4,0]])
     print("simple case")
     G=1
-else:
+else:#scaling initial positions to make the simulation actually have a model solar system rather than multiple unbound and eccentric planets
     pos = posm
     vel = velms
     G = 6.6743e-11
@@ -53,7 +50,7 @@ else:
     vel[-1] = vel[-1]*escapevel
 
 
-if mode == '1':
+if mode == '1': #cut down arrays for timesave
     pos = np.array([pos[0],pos[5],pos[9]])
     vel = np.array([vel[0],vel[5],vel[9]])
     mass = np.array([mass[0],mass[5],mass[9]])
@@ -62,7 +59,7 @@ elif mode == '2':
 
 N = np.size(mass)
 
-
+#specify time parameters
 day = 24*60**2
 if mode == '1':
     dt = day/10
@@ -71,15 +68,15 @@ elif mode=='2':
     dt = day/40
     timestep = 60225*40
 elif mode == '3':
-    dt = 0.01
-    timestep = 20000
+    dt = 0.0001
+    timestep = 200000
 else:
     dt=1
     timestep=0
 
 print("timesteps: " ,timestep)
 print("number of bodies: ",N)
-
+#initialise arrays for data storage
 posTime = np.zeros([N,timestep,3])
 accArray = np.zeros([N,N,3])
 massmult = np.transpose(np.array([mass,mass,mass]))
@@ -89,56 +86,72 @@ energyTime = np.zeros(timestep)
 accTime = np.zeros(timestep)
 rCalc = np.zeros([N,N,3])
 
+
+###=================###
+### MAIN SIMULATION ###
+###=================###
+
 for t in range(timestep):
     bigpos = pos*np.ones([N,N,3])
-    swapbigpos = np.swapaxes(bigpos,0,1)
+    swapbigpos = np.swapaxes(bigpos,0,1) #array of distances from body a to b stored for exaple as ([b,a,[x,y,z]])
     rArray = bigpos-swapbigpos
 
     posTime[:,t,:] = pos[:,:]
     for i in range(N):
-        rArray[i,i,:]=3**(-0.5)
+        rArray[i,i,:]=3**(-0.5) #calculate r part in a = GM/r^2 * rhat
 
     rScale = np.linalg.norm(rArray,axis=2)**(3)
     for i in range(N):
         rScale[i,i] = 1e100
         rArray[i,i,:] = 1e100
     rCalc[:,:,0] = rArray[:,:,0]/rScale
-    rCalc[:,:,1] = rArray[:,:,1]/rScale
-    rCalc[:,:,2] = rArray[:,:,2]/rScale
+    rCalc[:,:,1] = rArray[:,:,1]/rScale #there is probably a more efficient way of doing this calculation with numpy
+    rCalc[:,:,2] = rArray[:,:,2]/rScale #but the time saved in simulation runtime will probably be less than the time it takes to learn how to implement it
 
     for i in range(N):
         accArray[i,:,:]=G*massmult*rCalc[i,:,:]
-        accArray[i,i,:]=0#self acceleration = 0
+        accArray[i,i,:]=0#self acceleration = 0 
 
     #energy calculation
     for i in range(N-1):
         GPEArray[i] = -G*mass[i]*np.sum(mass[i+1:]/np.linalg.norm(rArray[i,i+1:,:],axis=1))
     KEArray = 0.5*mass*np.linalg.norm(vel[:,:],axis=1)**2
     energyTime[t] = np.sum(GPEArray+KEArray)
+
+    #update vel and pos based on the acceleration measured
     acc = np.sum(accArray,axis=1)
     vel = vel + acc*dt
     pos = pos + vel*dt
     accTime[t] = np.linalg.norm(acc[-1,:])
     
 sunPosTime = posTime[0,:,:]
-relPosTime = (posTime-sunPosTime)/1.496e+11
+relPosTime = (posTime-sunPosTime)/1.496e+11 #convert to AU centered on the suns position
 
-if mode == '3':
-    plt.title("Simple 2-Body Case")
-    plt.xlabel("x position")
-    plt.ylabel("y position")
-    plt.plot(posTime[0,:,0],posTime[0,:,1],'r-')
-    plt.plot(posTime[1,:,0],posTime[1,:,1])
+###==================###
+### PLOTTING SECTION ###
+###==================###
+
+if mode == '3': #plot for simple case
+    plt.figure(figsize=(9,9),dpi=160)
+    axsimple = plt.axes([0.1,0.1,0.8,0.8])
+    axsimple.set_xlim(-1.05,1.05)
+    axsimple.set_ylim(-1.05,1.05)
+    axsimple.set_title("Paths of bodies in simple case",fontsize=18)
+    axsimple.set_xlabel("x position",fontsize=16)
+    axsimple.set_ylabel("y position",fontsize=16)
+    axsimple.plot(posTime[0,:,0],posTime[0,:,1],'r-')
+    axsimple.plot(posTime[1,:,0],posTime[1,:,1],'b-')    
+    
 i=0
-
-if mode == "2":
+if mode == "2": #3 different zooms of the long simulation uses a loop to iterate through them
     while i < 3:
         plt.cla()
         maxacc = np.argmax(accTime)
         plt.figure(figsize=(16,9),dpi=160)
-        axxy = plt.axes([0.06,0.05,0.75,0.9])
-        axxz = plt.axes([0.82,0.05,0.1,0.9])
+        axxy = plt.axes([0.06,0.07,0.75,0.9])
+        axxz = plt.axes([0.82,0.07,0.1,0.9])
         axxz.yaxis.tick_right()
+        axxz.yaxis.set_label_position("right")
         axxy.cla()
         axxz.cla()
         axxy.set_facecolor("midnightblue")
@@ -158,12 +171,12 @@ if mode == "2":
             axxy.set_ylim(-0.32325,0.32325)
             axxz.set_xlim(-15,15)
             axxz.set_ylim(-800,800)
-        axxy.set_xlabel("x/AU")
-        axxy.set_ylabel("y/AU")
-        axxz.set_xlabel("x/AU")
-        axxz.set_ylabel("z/AU")
-        axxy.set_title("Paths in xy plane")
-        axxz.set_title("Paths in xz plane")
+        axxy.set_xlabel("x/AU",fontsize=16)
+        axxy.set_ylabel("y/AU",fontsize=16)
+        axxz.set_xlabel("x/AU",fontsize=16)
+        axxz.set_ylabel("z/AU",fontsize=16)
+        axxy.set_title("Paths in xy plane",fontsize=16)
+        axxz.set_title("Paths in xz plane",fontsize=16)
         if i <2:
             axxy.plot(0,0,'ro',label="Sun")
             axxz.plot(0,0,'ro')
@@ -190,23 +203,32 @@ if mode == "2":
             axxz.plot(relPosTime[7,:,0],relPosTime[7,:,2],color="skyblue",label="Uranus")
             axxy.plot(relPosTime[8,:,0],relPosTime[8,:,1],color="royalblue",label="Neptune")
             axxz.plot(relPosTime[8,:,0],relPosTime[8,:,2],color="royalblue",label="Neptune")
+
         i=i+1
-        axxy.legend(loc="lower right")
+        axxy.legend(loc="lower right",fontsize=14)
         plt.show()
         input("press enter to show next plot")
 
-if mode == "1":   
+if mode == "1":   #plotting for fast run mode
     maxacc = np.argmax(accTime)
     plt.figure(figsize=(16,9),dpi=160)
-    axxy = plt.axes([0.06,0.05,0.75,0.9])
-    axxz = plt.axes([0.82,0.05,0.1,0.9])
+    axxy = plt.axes([0.06,0.07,0.75,0.9])
+    axxz = plt.axes([0.82,0.07,0.1,0.9])
     axxy.set_facecolor("midnightblue")
     axxz.set_facecolor("midnightblue")
+    axxz.yaxis.tick_right()
+    axxz.yaxis.set_label_position("right")
     axxy.set_xlim(-9.318,9.318)
-    axxy = plt.axes([0.05,0.06,0.9,0.75])
-    axxz = plt.axes([0.05,0.82,0.9,0.1])
     axxz.yaxis.tick_right()
     axxy.set_ylim(-6,6)
+    axxz.set_xlim(-6,6)
+    axxz.set_ylim(-0.2,0.2)
+    axxy.set_xlabel("x/AU",fontsize=16)
+    axxy.set_ylabel("y/AU",fontsize=16)
+    axxz.set_xlabel("x/AU",fontsize=16)
+    axxz.set_ylabel("z/AU",fontsize=16)
+    axxy.set_title("Paths in xy plane",fontsize=16)
+    axxz.set_title("Paths in xz plane",fontsize=16)
     axxy.plot(0,0,'ro',label="Sun")
     axxz.plot(0,0,'ro')
     axxy.plot(relPosTime[1,:,0],relPosTime[1,:,1],color="chocolate",label="Jupiter")
@@ -215,20 +237,24 @@ if mode == "1":
     axxz.plot(relPosTime[2,:,0],relPosTime[2,:,2],color="deeppink",label="Interloper")
     axxy.plot(relPosTime[-1,maxacc,0],relPosTime[-1,maxacc,1],'rx',label="Position of closest approach")
     axxz.plot(relPosTime[-1,maxacc,0],relPosTime[-1,maxacc,2],'rx')
-    axxy.legend(loc="lower right")
+    axxy.legend(loc="lower right",fontsize=14)
     i=3
+    plt.show()
+    input("Press enter to show next graph")
     
 plt.show()
-input("Press enter to show next graph")
-#%%
+#plotting for relative energy
+plt.cla()
 plt.figure(figsize=(16,9),dpi=160)
-Eax = plt.axes([0.05,0.05,0.9,0.9])
-Eax.set_xlabel("timestep/0.025*days")
-Eax.set_ylabel("$E/E_i -1$")
-Eax.set_title("Relative energy over time")
+Eax = plt.axes([0.07,0.07,0.9,0.87])
+Eax.set_xlabel("timestep/0.05*days",fontsize=16)
+Eax.set_ylabel("$E/E_i -1$",fontsize=16)
+Eax.set_title("Relative energy over time",fontsize=18)
 Eax.plot(range(timestep),energyTime/energyTime[0]-1)
 plt.show()
-#%%3D PLOT
+
+#The following is deprocated code that I would of liked to adapt to render an mp4 animation of the simulation had I enough time
+"""
 maxx = np.max(np.abs(relPosTime[-2,:,0]))
 maxy = np.max(np.abs(relPosTime[-2,:,1]))
 maxz = np.max(np.abs(relPosTime[-2,:,2]))
@@ -258,7 +284,9 @@ else:
     ax.plot3D(relPosTime[0,:,0],relPosTime[0,:,1],relPosTime[0,:,2],'r-')
     ax.plot3D(relPosTime[5,:,0],relPosTime[5,:,1],relPosTime[5,:,2],'b-')
     ax.plot3D(relPosTime[-1,:,0],relPosTime[-1,:,1],relPosTime[-1,:,2],'g-')
-#%%2D animation
+
+
+####2D animation
 
 axanim = plt.axes()
 animstep = 500
@@ -279,10 +307,4 @@ while timestep>(j2+animstep):
         axanim.plot(relPosTime[i+4,j:j2,0],relPosTime[i+4,j:j2,1],'-')
         axanim.plot(relPosTime[i+4,j2,0],relPosTime[i+4,j2,1],'o')
     plt.pause(0.1)
-    
-#%%energy graph
-#%%
-plt.plot()
-
-#%%
-plt.plot(range(timestep),accTime)
+"""
